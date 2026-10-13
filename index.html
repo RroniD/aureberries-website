@@ -5,6 +5,20 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AURE BERRIES — Boronica të Pejës | Kultivim dhe furnizim me shumicë</title>
 <meta name="description" content="Aure Berries SH.P.K. kultivon boronica të cilësisë së eksportit në një plantacion prej 4 hektarësh pranë Pejës, Kosovë. Vjelje me dorë, kontroll i rregullt i cilësisë dhe furnizim me shumicë për tregtarë dhe eksportues.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Aure Berries">
+<meta property="og:url" content="https://aureberries.com/">
+<meta property="og:title" content="Aure Berries — Boronica të Pejës">
+<meta property="og:description" content="Boronica të cilësisë së eksportit nga Peja. Vjelje me dorë dhe furnizim me shumicë për tregtarë dhe eksportues.">
+<meta property="og:locale" content="sq_AL">
+<meta property="og:image" content="https://aureberries.com/og-image.png">
+<meta property="og:image:width" content="600">
+<meta property="og:image:height" content="600">
+<meta property="og:image:alt" content="Aure Berries">
+<meta name="twitter:card" content="summary">
+<meta name="theme-color" content="#131020">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600;9..144,700;9..144,900&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -967,8 +981,47 @@ function applyLanguage(language, remember = true) {
 }
 
 applyLanguage(currentLanguage, false);
+
+/* Animated switch: on-screen text that changes blurs out, swaps, then rises back in. */
+let switchingLanguage = false;
+function switchLanguage(language) {
+  if (switchingLanguage) return;
+  const next = translations[language === 'en' ? 'en' : 'sq'];
+  const isOnScreen = el => {
+    const r = el.getBoundingClientRect();
+    return r.width > 0 && r.bottom > 0 && r.top < innerHeight && parseFloat(getComputedStyle(el).opacity) > .5;
+  };
+  const changed = new Set([document.getElementById('langToggle'), document.getElementById('marqueeTrack')]);
+  Object.entries(next.text).forEach(([selector, value]) => {
+    document.querySelectorAll(selector).forEach(el => { if (el.textContent !== value) changed.add(el); });
+  });
+  Object.entries(next.html).forEach(([selector]) => {
+    document.querySelectorAll(selector).forEach(el => changed.add(el));
+  });
+  const targets = [...changed].filter(el => el && isOnScreen(el))
+    .sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top);
+  if (reduceMotionPref || !targets.length || !Element.prototype.animate) { applyLanguage(language); return; }
+
+  switchingLanguage = true;
+  const ease = 'cubic-bezier(.2,.7,.2,1)';
+  const outs = targets.map(el => el.animate(
+    [{ opacity: 1, filter: 'blur(0px)', translate: '0 0' }, { opacity: 0, filter: 'blur(5px)', translate: '0 -6px' }],
+    { duration: 180, easing: 'ease-in', fill: 'forwards' }));
+  Promise.all(outs.map(a => a.finished)).then(() => {
+    applyLanguage(language);
+    const ins = targets.map((el, i) => {
+      if (!el.isConnected) return null;
+      return el.animate(
+        [{ opacity: 0, filter: 'blur(6px)', translate: '0 10px' }, { opacity: 1, filter: 'blur(0px)', translate: '0 0' }],
+        { duration: 460, delay: Math.min(i * 22, 220), easing: ease, fill: 'backwards' });
+    }).filter(Boolean);
+    outs.forEach(a => a.cancel());
+    return Promise.all(ins.map(a => a.finished));
+  }).finally(() => { switchingLanguage = false; });
+}
+const reduceMotionPref = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 document.getElementById('langToggle')?.addEventListener('click', () => {
-  applyLanguage(currentLanguage === 'sq' ? 'en' : 'sq');
+  switchLanguage(currentLanguage === 'sq' ? 'en' : 'sq');
 });
 </script>
 
