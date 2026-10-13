@@ -925,8 +925,12 @@ const translations = {
 };
 
 let renderMarquee = null;
+/* Albanian on every new visit; the EN choice only lasts for the current tab. */
 let savedLanguage = null;
-try { savedLanguage = localStorage.getItem('aure-language'); } catch (_) {}
+try {
+  localStorage.removeItem('aure-language');
+  savedLanguage = sessionStorage.getItem('aure-language');
+} catch (_) {}
 const requestedLanguage = new URLSearchParams(location.search).get('lang');
 let currentLanguage = ['sq', 'en'].includes(requestedLanguage) ? requestedLanguage : (savedLanguage === 'en' ? 'en' : 'sq');
 
@@ -956,7 +960,7 @@ function applyLanguage(language, remember = true) {
   }
   if (renderMarquee) renderMarquee();
   if (remember) {
-    try { localStorage.setItem('aure-language', currentLanguage); } catch (_) {}
+    try { sessionStorage.setItem('aure-language', currentLanguage); } catch (_) {}
   }
   document.dispatchEvent(new CustomEvent('aurelanguagechange', { detail: { language: currentLanguage } }));
   if (window.ScrollTrigger) requestAnimationFrame(() => ScrollTrigger.refresh());
@@ -1238,10 +1242,13 @@ if (window.L && document.getElementById('locationMap')) {
     dragging: true,
     zoomControl: true
   });
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>'
-  }).addTo(locationMap);
+  /* tile.openstreetmap.org blocks requests without a Referer, which a page opened
+     straight from disk (file://) never sends, so local previews use OSM France. */
+  const osmAttribution = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>';
+  const tiles = location.protocol === 'file:'
+    ? { url: 'https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', maxZoom: 19, attribution: osmAttribution + ' &middot; OSM France' }
+    : { url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', maxZoom: 19, attribution: osmAttribution, referrerPolicy: 'strict-origin-when-cross-origin' };
+  L.tileLayer(tiles.url, tiles).addTo(locationMap);
   const locationBerryIcon = L.divIcon({
     className: 'location-berry-icon',
     html: '<span class="location-berry-marker" aria-hidden="true"><svg viewBox="0 0 100 100"><use href="#berryShape"/></svg></span>',
